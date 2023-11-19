@@ -4,14 +4,16 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
 contract Mediscan is AccessControl {
     uint256 constant MAX_INT = 2**256 - 1;
 
-    bytes32 constant USER_ADMIN_ROLE = keccak256(abi.encodePacked("USER_ADMIN_ROLE"));
-    bytes32 constant PAYMENT_ADMIN_ROLE = keccak256(abi.encodePacked("PAYMENT_ADMIN_ROLE"));
-    bytes32 constant HEALTH_PROFESSIONAL_FULL = keccak256(abi.encodePacked("HEALTH_PROFESSIONAL_FULL"));
-    bytes32 constant HEALTH_PROFESSIONAL_MID = keccak256(abi.encodePacked("HEALTH_PROFESSIONAL_MID"));
-    bytes32 constant HEALTH_PROFESSIONAL_LOW = keccak256(abi.encodePacked("HEALTH_PROFESSIONAL_LOW"));
+    bytes32 constant public USER_ADMIN_ROLE = keccak256(abi.encodePacked("USER_ADMIN_ROLE"));
+    bytes32 constant public PAYMENT_ADMIN_ROLE = keccak256(abi.encodePacked("PAYMENT_ADMIN_ROLE"));
+    bytes32 constant public HEALTH_PROFESSIONAL_FULL = keccak256(abi.encodePacked("HEALTH_PROFESSIONAL_FULL"));
+    bytes32 constant public HEALTH_PROFESSIONAL_MID = keccak256(abi.encodePacked("HEALTH_PROFESSIONAL_MID"));
+    bytes32 constant public HEALTH_PROFESSIONAL_LOW = keccak256(abi.encodePacked("HEALTH_PROFESSIONAL_LOW"));
 
     mapping(bytes32 => bool) public registeredFaceHashes;
 
@@ -65,17 +67,20 @@ contract Mediscan is AccessControl {
     }
 
     function sendTokenToFaceHash(bytes32 _faceHash, address _token, uint256 _amount) external {
+        require(registeredFaceHashes[_faceHash], "Face hash not registered");
         IERC20(_token).transferFrom(msg.sender, address(this), _amount);
         balanceForTokenForFaceHash[_faceHash][_token] += _amount;
         emit SendTokenToFaceHash(_faceHash, _token, _amount);
     }
 
     function sendChainBaseTokenToFaceHash(bytes32 _faceHash) external payable {
+        require(registeredFaceHashes[_faceHash], "Face hash not registered");
         baseTokenBalanceForFaceHash[_faceHash] += msg.value;
         emit SendChainBaseTokenToFaceHash(_faceHash, msg.value);
     }
 
     function payoutTokenForFaceHash(bytes32 _faceHash, address _token,  address _account) external onlyPaymentAdmin {
+        require(registeredFaceHashes[_faceHash], "Face hash not registered");
         uint256 amount = balanceForTokenForFaceHash[_faceHash][_token];
         IERC20(_token).transfer(_account, amount);
         balanceForTokenForFaceHash[_faceHash][_token] -= amount;
@@ -83,6 +88,7 @@ contract Mediscan is AccessControl {
     }
 
     function payoutChainBaseTokenToFaceHash(bytes32 _faceHash, address _account) external onlyPaymentAdmin {
+        require(registeredFaceHashes[_faceHash], "Face hash not registered");
         uint256 amount = baseTokenBalanceForFaceHash[_faceHash];
         (bool success, ) = _account.call{value: amount}("");
         require(success, "Payout failed");
